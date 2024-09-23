@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="./dist/bundle2.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detailed Campaign View</title>
+    <link rel="stylesheet" href="../styles/campaign-detail-styles.css">
+
+</head>
+<body>
+    <div class="campaign-summary">
+        <h3 id="campaign-name">Loading Campaign...</h3>
+        <p><strong>Status:</strong> <span id="campaign-status">Loading...</span></p>
+        <p><strong>Message:</strong> <span id="campaign-message">Loading...</span></p>
+        <p><strong>Total Texts Sent:</strong> <span id="texts-sent">Loading...</span></p>
+        <p><strong>Total Responses:</strong> <span id="responses">Loading...</span></p>
+        <p><strong>Image Sent:</strong> <span id="image-sent">Loading...</span></p>
+        <div id="image-container">
+            <p><strong>Image Preview:</strong></p>
+            <img id="image-preview" alt="Image Loading..." width="500px" height="auto" />
+        </div>
+    </div>
+    <div>
+        <button id="goBack">Go Back</button>
+    </div>
+    <div class="data-section">
+        <h3>Messages</h3>
+        <button id="toggleStopMessages" data-show-stop="true">Show Only Stops</button>
+        <spam><button id="downloadResponses">Download Responses</button>
+        </spam>
+        <table id="messagesTable">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">Number &#9650;&#9660;</th>
+                    <th class="messages-column" onclick="sortTable(1)">Message &#9650;&#9660;</th>
+                    <th onclick="sortTable(2)">Tone &#9650;&#9660;</th>
+                    <th onclick="sortTable(3)">Sent At &#9650;&#9660;</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Messages will be dynamically inserted here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="authentication.js"></script>
+    <script src="../scripts/getCampaignIdFromURL.js"></script>
+    <script src="../scripts/getMedia.js"></script>
+    <script src="../scripts/fetchCampaignsDetails.js"></script>
+    <script src="../scripts/fetchMessages.js"></script>
+    <script src="../scripts/sort.js"></script>
+    <script src="../scripts/downloadCSV.js"></script>
+
+    <script>
+        checkAuthentication();
+
+        const campaignId = getCampaignIdFromURL();
+        const mediaResponse = getMedia(campaignId);
+        const campaignDetails = fetchCampaignDetails(campaignId);
+        if (mediaResponse.url) {
+            document.getElementById('image-preview').src = mediaResponse.url;
+            document.getElementById('image-container').style.display = 'block';
+        }
+        else {
+            document.getElementById('image-container').style.display = 'none';
+        }
+
+        if (campaignDetails) {
+            campaignDetails.then((data) => {
+                document.getElementById('campaign-name').textContent = data.name || 'Untitled Campaign';
+                document.getElementById('campaign-status').textContent = data.status || 'Unknown';
+                document.getElementById('campaign-message').textContent = data.text_message || 'No message available';
+                document.getElementById('texts-sent').textContent = data.sent || '0';
+                document.getElementById('responses').textContent = data.response || '0';
+                document.getElementById('image-sent').textContent = data.media_url ? 'Yes' : 'No';
+            });
+        }
+        else {
+            alert('No campaign details found.');
+        }
+
+        document.getElementById('toggleStopMessages').addEventListener('click', async function () {
+            const button = this;
+            const showStopMessages = button.getAttribute('data-show-stop') === 'true';
+
+            // Toggle button text and data attribute
+            if (showStopMessages) {
+                button.textContent = 'Show All Messages';
+                button.setAttribute('data-show-stop', 'false');
+            } else {
+                button.textContent = 'Show Only Stop Messages';
+                button.setAttribute('data-show-stop', 'true');
+            }
+
+            // Fetch and display messages with updated stop query parameter
+            await fetchCampaignMessages(campaignId, showStopMessages);
+        });
+
+        let lastId = 0; // Start with 0, update as you fetch new messages
+        let isFetching = false; // To prevent multiple fetches at the same time
+        let stopParam = 'false'; // Default for stop messages (can be updated by the button)
+
+        window.addEventListener('scroll', () => {
+            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && !isFetching) {
+                // User has scrolled to the bottom, fetch more messages
+                fetchCampaignMessages(campaignId, stopParam === 'true');
+            }
+        });
+
+        document.getElementById("messagesTable").setAttribute("data-sort-direction", "asc");
+        window.onload = function () {
+            const campaignId = getCampaignIdFromURL();
+            if (campaignId) {
+                fetchCampaignDetails(campaignId);
+                fetchCampaignMessages(campaignId);
+            } else {
+                alert('No campaign ID found.');
+            }
+        };
+
+        document.getElementById('downloadResponses').addEventListener('click', function () {
+            downloadTableAsCSV('messagesTable', 'campaign_responses.csv');
+        });
+
+        document.getElementById('goBack').addEventListener('click', function () {
+            window.history.back();
+        });
+
+    </script>
+</body>
+
+</html>

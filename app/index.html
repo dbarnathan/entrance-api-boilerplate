@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="../media/EVUS.svg">
+    <link rel="stylesheet" href="../styles/campaigns.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaign Dashboard</title>
+</head>
+<body>
+    <h1>Campaign Manager</h1>
+<div class="buttons">
+    <button id="awaitingContentButton" class="seeStatusButton" onclick="seeAwaitingContent()">Awaiting Content</button>
+    <button id="approvalRequiredButton" class="seeStatusButton" onclick="seeAwaitingApproval()">Awaiting Approval</button>
+    <button id="seeSentButton" class="seeStatusButton" onclick="seeSent()">See Sent Campaigns</button>
+</div>
+    <div class="campaign-container" id="sentCampaigns" style="display: block;">
+        <h3>Recent Campaigns</h3>
+        <table id="campaignTable1">
+            <thead>
+                <tr>
+                    <th>Campaign Name</th>
+                    <th>Date Created</th>
+                    <th>Status</th>
+                    <th>Message</th>
+                    <th>Total Texts Sent</th>
+                    <th>Responses</th>
+                    <th>Image Sent</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+    <div class="campaign-container" id="awaitingApproval" style="display: none;">
+        <h3>Awaiting Approval Campaigns</h3>
+        <table id="campaignTable2">
+            <thead>
+                <tr>
+                    <th>Campaign Name</th>
+                    <th>Date Created</th>
+                    <th>Status</th>
+                    <th>Message</th>
+                    <th>Total Texts Sent</th>
+                    <th>Responses</th>
+                    <th>Image Sent</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+    <div class="campaign-container" id="awaitingContent" style="display: none;">
+        <h3>Awaiting Content Campaigns</h3>
+        <table id="campaignTable3">
+            <thead>
+                <tr>
+                    <th>Campaign Name</th>
+                    <th>Date Created</th>
+                    <th>Status</th>
+                    <th>Message</th>
+                    <th>Total Texts Sent</th>
+                    <th>Responses</th>
+                    <th>Image Sent</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <button id="logOut">Log Out</button>
+
+    <script src="authentication.js"></script>
+    <script src="../scripts/fetchCampaigns.js"></script>
+    <script src="../scripts/sleep.js"></script>
+    <script src="../scripts/buttons.js"></script>
+
+    <script>
+        // Ensure the user is authenticated
+        checkAuthentication();
+
+async function fetchRecentCampaigns() {
+    try {
+        let campaigns; // Declare campaigns variable outside of the condition
+        let campaignTableID;
+        let clickDestination;
+        // Fetch campaigns based on the display property
+        if (document.getElementById('sentCampaigns').style.display == 'block') {
+            campaigns = await useSentCampaigns();
+            campaignTableID = 'campaignTable1';
+            clickDestination = 'campaign-detail.html';
+        } else if (document.getElementById('awaitingApproval').style.display == 'block') {
+            campaigns = await useAwaitingApproval();
+            campaignTableID = 'campaignTable2';
+            clickDestination = 'campaign-approval.html';
+        } else if (document.getElementById('awaitingContent').style.display == 'block') {
+            campaigns = await useAwaitingContent();
+            campaignTableID = 'campaignTable3';
+            clickDestination = 'campaign-content.html';
+        }
+        console.log(campaignTableID)
+
+        if (campaigns) {
+            console.log('Campaigns found:', campaigns);
+            const tableBody = document.getElementById(campaignTableID).querySelector('tbody');
+            tableBody.innerHTML = '';  // Clear existing rows
+            // Loop through each campaign and display in the table
+            campaigns.forEach(campaign => {
+                console.log('Campaign:', campaign);
+                const row = document.createElement('tr');
+                console.log('Row:', row);
+                row.classList.add('clickable-row');
+
+                // Add click event to go to detailed view of responses
+                row.addEventListener('click', function() {
+                    window.location.href = `campaign-detail.html?campaignId=${campaign.id}`;
+                });
+
+                // Campaign name
+                const nameCell = document.createElement('td');
+                nameCell.textContent = campaign.name || 'Untitled Campaign';
+                row.appendChild(nameCell);
+
+                // Date created
+                const dateCell = document.createElement('td');
+                dateCell.textContent = new Date(campaign.created_at).toLocaleString();
+                row.appendChild(dateCell);
+
+                // Status
+                const statusCell = document.createElement('td');
+                const statusText = document.createElement('span');
+                statusText.textContent = campaign.status;
+                statusText.classList.add('status');
+                if (campaign.status === 'sent') {
+                    statusText.classList.add('completed');
+                } else if (campaign.status === 'ready' || campaign.status === 'created') {
+                    statusText.classList.add('pending');
+                } else {
+                    statusText.classList.add('failed');
+                }
+                statusCell.appendChild(statusText);
+                row.appendChild(statusCell);
+
+                // Message
+                const messageCell = document.createElement('td');
+                messageCell.textContent = campaign.text_message || 'No message available';
+                row.appendChild(messageCell);
+
+                // Total Texts Sent
+                const textsCell = document.createElement('td');
+                textsCell.textContent = campaign.sent || '0';
+                row.appendChild(textsCell);
+
+                // Responses
+                const responsesCell = document.createElement('td');
+                responsesCell.textContent = campaign.response || '0';
+                row.appendChild(responsesCell);
+
+                // Image Sent
+                const imageCell = document.createElement('td');
+                imageCell.textContent = campaign.media_url ? 'Yes' : 'No';
+                row.appendChild(imageCell);
+
+                // Append the row to the table body
+                tableBody.appendChild(row);
+            });
+        } else {
+            console.log('Nothing table code found.');
+        }
+
+    } catch (error) {
+        console.error('Error fetching recent campaigns:', error);
+    }
+}
+
+
+// Fetch recent campaigns on page load
+window.onload = function() {
+    fetchRecentCampaigns();
+};
+
+        // Log out function
+        document.getElementById('logOut').addEventListener('click', async function() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+
+        });
+    </script>
+</body>
+</html>
